@@ -1,6 +1,8 @@
 SoundCues = SoundCues or {}
 
 local menuCurrentEffectId = nil
+local newEffectId = nil
+local createDescription = nil
 
 local function getTrackedEffectLists(tbl)
     local EffectIdList = {}
@@ -16,13 +18,41 @@ local function noMenuCurrentEffectId()
     return menuCurrentEffectId == nil
 end
 
+local function deleteCurrentEffectTracking()
+    if noMenuCurrentEffectId() then return end
+    SoundCues.Settings.trackedEffects[menuCurrentEffectId] = nil
+end
+
+local function createNewEffectTracker()
+    local abilityName = GetAbilityName(newEffectId)
+    df("newEffectId: %d", newEffectId)
+    df("abilityName: %s", abilityName)
+    if newEffectId == nil or abilityName == nil then
+        createDescription = "|cff0000Could not find an effect with ID " .. tostring(newEffectId) .."|r"
+    elseif SoundCues.Settings.trackedEffects[newEffectId] ~= nil then
+        createDescription = "|cff0000The effect " .. abilityName .. " (" .. tostring(newEffectId) .. ") is already being tracked|r"
+    else
+        SoundCues.Settings.trackedEffects[newEffectId] = {
+            name = abilityName,
+            sound = "ABILITY_COMPANION_ULTIMATE_READY",
+            volume = 1,
+            timeBeforeEffectEnd = 0,
+            soundRepeatType = nil,
+            soundRepeatAmount = nil,
+            soundInterval = nil,
+            active = true,
+        }
+    end
+    newEffectId = nil
+end
+
 local function getEffectValue(attribute)
-    if menuCurrentEffectId == nil then return nil end
+    if noMenuCurrentEffectId() then return nil end
     return SoundCues.Settings.trackedEffects[menuCurrentEffectId][attribute]
 end
 
 local function setEffectValue(attribute, value)
-    if menuCurrentEffectId == nil then return end
+    if noMenuCurrentEffectId() then return end
     SoundCues.Settings.trackedEffects[menuCurrentEffectId][attribute] = value
 end
 
@@ -30,19 +60,28 @@ local function testSound(value)
     SoundCues.PlaySound(getEffectValue("sound"), getEffectValue("volume"))
 end
 
-function SoundCues.setUpMenu()
-    local LAM2 = LibAddonMenu2
+local function effectSettings()
     local EffectIdList, EffectNameList = getTrackedEffectLists(SoundCues.Settings.trackedEffects)
     -- df("EffectNameList: %s, %s, %s", unpack(EffectNameList))
 
-    local panelData = {
-        type = "panel",
-        name = "SoundCues",
-        registerForRefresh = true,
-        slashCommand = "/SoundCues",
+    local repeatTypeValues = {
+        "noRepeat",
+        "RepeatDown",
+        "RepeatAmount",
     }
-    local optionsData = {
-        [1] = {
+    local repeatTypeLabels = {
+        "No Repeat",
+        "Repeat While Effect Is Down",
+        "Repeat X Amount Of Times",
+    }
+
+    return {
+        {
+            type = "header",
+            name = "Effects",
+            width = "full",
+        },
+        {
             type = "dropdown",
             name = "Effect",
             tooltip = "Tracked effect",
@@ -54,25 +93,80 @@ function SoundCues.setUpMenu()
             sort = "name-up",
             width = "half",
         },
-        [2] = {
-            type = "divider",
+        {
+            type = "button",
+            name = "Delete",
+            tooltip = "Delete Effect Tracking",
+            func = deleteCurrentEffectTracking,
+            width = "half",
+            isDangerous = true,
+            warning = "Are you sure you want to delete this tracker?",
+            disabled = noMenuCurrentEffectId
+        },
+        {
+            type = "submenu",
+            name = "New Effect Tracker",
+            controls = {
+                {
+                    type = "editbox",
+                    name = "Effect ID",
+                    tooltip = "The ID of the effect that needs to be tracked",
+                    getFunc = function() return newEffectId end,
+                    setFunc = function(value) newEffectId = value end,
+                    isMultiline = false,
+                    textType = TEXT_TYPE_NUMERIC,
+                    width = "half",
+                    maxChars = 10,
+                    isExtraWide = false,
+                },
+                {
+                    type = "button",
+                    name = "Create",
+                    tooltip = "Create tracker for provided Effect ID",
+                    func = createNewEffectTracker,
+                    width = "half",
+                    disabled = function() return newEffectId == nil end
+                },
+                {
+                    type = "description",
+                    text = createDescription,
+                    width = "full",
+                }
+            },
+        },
+        {
+            type = "header",
+            name = "Activiation",
             width = "full",
         },
-        [3] = {
+        {
             type = "checkbox",
             name = "Active",
             getFunc = function() return getEffectValue("active") end,
             setFunc = function(value) setEffectValue("active", value) end,
-            tooltip = "Effect Tracking is active",
-            width = "full",
+            tooltip = "Effect Tracking can be disabled without having to delete it.",
+            width = "half",
             disabled = noMenuCurrentEffectId,
         },
-        [4] = {
+        {
+            type = "slider",
+            name = "Time Before Effect End",
+            tooltip = "The amount of time before the end of the effect to play the Sound, 0 means that the sound will play the moment the effect ends",
+            min = 0.0,
+            max = 5.0,
+            step = 0.1,
+            decimals = 1,
+            getFunc = function() return getEffectValue("timeBeforeEffectEnd") end,
+            setFunc = function(value) setEffectValue("timeBeforeEffectEnd", value) end,
+            width = "half",
+            disabled = noMenuCurrentEffectId,
+        },
+        {
             type = "header",
             name = "Sound Effect",
             width = "full",
         },
-        [5] = {
+        {
             type = "dropdown",
             name = "Sound Effect",
             tooltip = "Sound Effect to play",
@@ -83,7 +177,7 @@ function SoundCues.setUpMenu()
             width = "half",
             disabled = noMenuCurrentEffectId,
         },
-        [6] = {
+        {
             type = "slider",
             name = "Volume",
             tooltip = "Volume of the Sound Effect",
@@ -94,18 +188,84 @@ function SoundCues.setUpMenu()
             width = "half",
             disabled = noMenuCurrentEffectId,
         },
-        [7] = {
-                type = "button",
-                name = "Test",
-                tooltip = "Test Sound Effect",
-                func = testSound,
-                width = "full",
-                disabled = noMenuCurrentEffectId
+        {
+            type = "button",
+            name = "Test",
+            tooltip = "Test Sound Effect",
+            func = testSound,
+            width = "full",
+            disabled = noMenuCurrentEffectId
         },
-        [8] = {
+        {
             type = "divider",
             width = "full",
         },
+        {
+            type = "header",
+            name = "Repetition",
+            width = "full",
+        },
+        {
+            type = "dropdown",
+            name = "Sound Repeat Type",
+            tooltip = "Sound Repeat Type",
+            choices = repeatTypeLabels,
+            choicesValues = repeatTypeValues,
+            getFunc = function() return getEffectValue("soundRepeatType") end,
+            setFunc = function(value) setEffectValue("soundRepeatType", value) end,
+            width = "half",
+            disabled = noMenuCurrentEffectId,
+        },
+        {
+            type = "slider",
+            name = "Repeat Amount",
+            tooltip = "The amount of times you want the sound to be repeated, only applied when using Sound Repeat Type 'Repeat X Amount Of Times'",
+            min = 1,
+            max = 20,
+            getFunc = function() return getEffectValue("soundRepeatAmount") end,
+            setFunc = function(value) setEffectValue("soundRepeatAmount", value) end,
+            width = "half",
+            disabled = function() return getEffectValue("soundRepeatType") ~= "RepeatAmount" end,
+        },
+        {
+            type = "slider",
+            name = "Repeat Interval",
+            tooltip = "The time between the sound repitition to be played",
+            min = 0.0,
+            max = 10.0,
+            step = 0.1,
+            decimals = 1,
+            getFunc = function() return getEffectValue("soundInterval") end,
+            setFunc = function(value) setEffectValue("soundInterval", value) end,
+            width = "half",
+            disabled = function() return noMenuCurrentEffectId() or getEffectValue("soundRepeatType") == "noRepeat" end,
+        },
+    }
+end
+
+local function potionSettings()
+    return {}
+end
+
+function SoundCues.setUpMenu()
+    local LAM2 = LibAddonMenu2
+    local panelData = {
+        type = "panel",
+        name = "SoundCues",
+        registerForRefresh = true,
+        slashCommand = "/SoundCues",
+    }
+    local optionsData = {
+        {
+            type = "submenu",
+            name = "Effect Settings",
+            controls = effectSettings()
+        },
+        {
+            type = "submenu",
+            name = "Potion Settings",
+            controls = potionSettings()
+        }
     }
 
     LAM2:RegisterAddonPanel("SoundCuesOptions", panelData)

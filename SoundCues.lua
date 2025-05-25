@@ -13,16 +13,16 @@ function SoundCues.PlaySound(sound, volume)
 end
 
 function SoundCues.onEffectChanged(eventCode, changeType, effectSlot, effectName, unitTag, beginTime, endTime, stackCount, iconName, buffType, effectType, abilityType, statusEffectType, unitName, unitId, abilityId, sourceUnitType)
-    for effectId, buffData in pairs(SoundCues.Settings.trackedEffects) do
+    for effectId, effectData in pairs(SoundCues.Settings.trackedEffects) do
         if effectId == abilityId and SoundCues.Settings.trackedEffects[effectId].active then
             if (changeType == EFFECT_RESULT_FADED) then
-                SoundCues.activeBuffs[effectId] = nil
-                if buffData.timeBeforeEnd == 0.0 then
-                    SoundCues.PlaySound(buffData.sound, buffData.volume)
+                SoundCues.activeEffects[effectId] = nil
+                if effectData.timeBeforeEffectEnd == 0.0 then
+                    SoundCues.PlaySound(effectData.sound, effectData.volume)
                 end
             elseif (changeType == EFFECT_RESULT_GAINED) then
-                if buffData.timeBeforeEnd ~= 0.0 then
-                    SoundCues.activeBuffs[effectId] = {
+                if effectData.timeBeforeEffectEnd ~= 0.0 then
+                    SoundCues.activeEffects[effectId] = {
                         endTime = endTime,
                         count = 0,
                     }
@@ -35,22 +35,22 @@ end
 
 function SoundCues.run()
     local now = GetGameTimeSeconds()
-    local noActiveBuffs = true
-    for effectId, activeBuffData in pairs(SoundCues.activeBuffs) do
-        noActiveBuffs = false
-        local buffData = SoundCues.Settings.trackedEffects[effectId]
-        if activeBuffData.endTime - buffData.timeBeforeEnd <= now and activeBuffData.count < buffData.sound_amount then
-            SoundCues.PlaySound(buffData.sound, buffData.volume)
-            activeBuffData.count = activeBuffData.count + 1
+    local noActiveEffects = true
+    for effectId, activeEffectData in pairs(SoundCues.activeEffects) do
+        noActiveEffects = false
+        local effectData = SoundCues.Settings.trackedEffects[effectId]
+        if activeEffectData.endTime - effectData.timeBeforeEffectEnd <= now and activeEffectData.count < effectData.sound_amount then
+            SoundCues.PlaySound(effectData.sound, effectData.volume)
+            activeEffectData.count = activeEffectData.count + 1
         end
     end
-    if noActiveBuffs then
+    if noActiveEffects then
         EVENT_MANAGER:UnregisterForUpdate("SoundCuesRun")
     end
 end
 
 function SoundCues.Initialize()
-    SoundCues.activeBuffs = {}
+    SoundCues.activeEffects = {}
     SoundCues.Settings = ZO_SavedVars:New("SoundCuesSavedVariables", 2, nil, SoundCuesData.defaults) -- TODO reset back to 1
     SoundCues.setUpMenu()
     EVENT_MANAGER:RegisterForEvent(SoundCues.name, EVENT_EFFECT_CHANGED, SoundCues.onEffectChanged)
