@@ -5,12 +5,14 @@
 ; https://account.elderscrollsonline.com/add-on-terms
 
 ## Title: Sound Cues
-## APIVersion: 101044
-## Version: 1.0
+## APIVersion: 101046
+## Version: 1.0.1
 ## Author: Rymorc
 ## Description: Sound Cues when effects are running out
 ## IsLibrary: False
 ## SavedVariables: SoundCuesSavedVariables
+## DependsOn: LibAddonMenu-2.0
 
 SoundCuesData.lua
+SoundCuesMenu.lua
 SoundCues.lua
