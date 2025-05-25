@@ -13,11 +13,7 @@ local function getTrackedEffectLists(tbl)
 end
 
 local function noMenuCurrentEffectId()
-    if menuCurrentEffectId == nil then
-        return true
-    else
-        return false
-    end
+    return menuCurrentEffectId == nil
 end
 
 local function getEffectValue(attribute)
