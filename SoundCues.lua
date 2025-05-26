@@ -39,7 +39,7 @@ function SoundCues.run()
     for effectId, activeEffectData in pairs(SoundCues.activeEffects) do
         noActiveEffects = false
         local effectData = SoundCues.Settings.trackedEffects[effectId]
-        if activeEffectData.endTime - effectData.timeBeforeEffectEnd <= now and activeEffectData.count < effectData.sound_amount then
+        if activeEffectData.endTime - effectData.timeBeforeEffectEnd <= now and activeEffectData.count < (effectData.soundRepeatAmount or 1) then
             SoundCues.PlaySound(effectData.sound, effectData.volume)
             activeEffectData.count = activeEffectData.count + 1
         end
@@ -51,7 +51,7 @@ end
 
 function SoundCues.Initialize()
     SoundCues.activeEffects = {}
-    SoundCues.Settings = ZO_SavedVars:New("SoundCuesSavedVariables", 2, nil, SoundCuesData.defaults) -- TODO reset back to 1
+    SoundCues.Settings = ZO_SavedVars:New("SoundCuesSavedVariables", 3, nil, SoundCuesData.defaults) -- TODO reset back to 1
     SoundCues.setUpMenu()
     EVENT_MANAGER:RegisterForEvent(SoundCues.name, EVENT_EFFECT_CHANGED, SoundCues.onEffectChanged)
 end

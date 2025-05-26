@@ -2,7 +2,6 @@ SoundCues = SoundCues or {}
 
 local menuCurrentEffectId = nil
 local newEffectId = nil
-local createDescription = nil
 
 local function getTrackedEffectLists(tbl)
     local EffectIdList = {}
@@ -18,20 +17,31 @@ local function noMenuCurrentEffectId()
     return menuCurrentEffectId == nil
 end
 
+local function reloadEffectDropdown()
+    local EffectIdList, EffectNameList = getTrackedEffectLists(SoundCues.Settings.trackedEffects)
+    SOUND_CUES_EFFECT_DROPDOWN:UpdateChoices(EffectNameList, EffectIdList)
+end
+
+local function selectEffect(value)
+    menuCurrentEffectId = value
+    CREATE_DESCRIPTION.data.text = ""
+end
+
 local function deleteCurrentEffectTracking()
-    if noMenuCurrentEffectId() then return end
+    if menuCurrentEffectId == nil then return end
     SoundCues.Settings.trackedEffects[menuCurrentEffectId] = nil
+    reloadEffectDropdown()
+    menuCurrentEffectId = nil
 end
 
 local function createNewEffectTracker()
     local abilityName = GetAbilityName(newEffectId)
-    df("newEffectId: %d", newEffectId)
-    df("abilityName: %s", abilityName)
-    if newEffectId == nil or abilityName == nil then
-        createDescription = "|cff0000Could not find an effect with ID " .. tostring(newEffectId) .."|r"
+    if newEffectId == nil or abilityName == nil or abilityName == "" then
+        CREATE_DESCRIPTION.data.text = "|cff0000Could not find an effect with ID " .. tostring(newEffectId) .."|r"
     elseif SoundCues.Settings.trackedEffects[newEffectId] ~= nil then
-        createDescription = "|cff0000The effect " .. abilityName .. " (" .. tostring(newEffectId) .. ") is already being tracked|r"
+        CREATE_DESCRIPTION.data.text = "|cff0000The effect " .. abilityName .. " (" .. tostring(newEffectId) .. ") is already being tracked|r"
     else
+        CREATE_DESCRIPTION.data.text = ""
         SoundCues.Settings.trackedEffects[newEffectId] = {
             name = abilityName,
             sound = "ABILITY_COMPANION_ULTIMATE_READY",
@@ -42,6 +52,8 @@ local function createNewEffectTracker()
             soundInterval = nil,
             active = true,
         }
+        menuCurrentEffectId = newEffectId
+        reloadEffectDropdown()
     end
     newEffectId = nil
 end
@@ -88,10 +100,11 @@ local function effectSettings()
             choices = EffectNameList,
             choicesValues = EffectIdList,
             getFunc = function() return menuCurrentEffectId end,
-            setFunc = function(value) menuCurrentEffectId = value end,
+            setFunc = selectEffect,
             scrollable = true,
             sort = "name-up",
             width = "half",
+            reference = "SOUND_CUES_EFFECT_DROPDOWN",
         },
         {
             type = "button",
@@ -101,38 +114,37 @@ local function effectSettings()
             width = "half",
             isDangerous = true,
             warning = "Are you sure you want to delete this tracker?",
-            disabled = noMenuCurrentEffectId
+            disabled = noMenuCurrentEffectId,
         },
         {
-            type = "submenu",
-            name = "New Effect Tracker",
-            controls = {
-                {
-                    type = "editbox",
-                    name = "Effect ID",
-                    tooltip = "The ID of the effect that needs to be tracked",
-                    getFunc = function() return newEffectId end,
-                    setFunc = function(value) newEffectId = value end,
-                    isMultiline = false,
-                    textType = TEXT_TYPE_NUMERIC,
-                    width = "half",
-                    maxChars = 10,
-                    isExtraWide = false,
-                },
-                {
-                    type = "button",
-                    name = "Create",
-                    tooltip = "Create tracker for provided Effect ID",
-                    func = createNewEffectTracker,
-                    width = "half",
-                    disabled = function() return newEffectId == nil end
-                },
-                {
-                    type = "description",
-                    text = createDescription,
-                    width = "full",
-                }
-            },
+            type = "divider",
+            width = "full",
+        },
+        {
+            type = "editbox",
+            name = "New Effect ID",
+            tooltip = "The ID of the new effect that needs to be tracked",
+            getFunc = function() return newEffectId end,
+            setFunc = function(value) newEffectId = tonumber(value) end,
+            isMultiline = false,
+            textType = TEXT_TYPE_NUMERIC,
+            width = "half",
+            maxChars = 10,
+            isExtraWide = false,
+        },
+        {
+            type = "button",
+            name = "Create",
+            tooltip = "Create tracker for provided Effect ID",
+            func = createNewEffectTracker,
+            width = "half",
+            disabled = function() return newEffectId == nil end
+        },
+        {
+            type = "description",
+            text = "",
+            width = "full",
+            reference = "CREATE_DESCRIPTION"
         },
         {
             type = "header",
@@ -195,10 +207,6 @@ local function effectSettings()
             func = testSound,
             width = "full",
             disabled = noMenuCurrentEffectId
-        },
-        {
-            type = "divider",
-            width = "full",
         },
         {
             type = "header",
