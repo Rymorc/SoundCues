@@ -4,6 +4,8 @@ SoundCues.name = "SoundCues"
 SoundCues.version = "1.0.1"
 SoundCues.author = "@Rymorc"
 SoundCues.Settings = {}
+SoundCues.activeEffects = {}
+SoundCues.repeatEffects = {}
 
 function SoundCues.PlaySound(sound, volume)
 	if volume < 1 or volume > 20 then volume = 1 end
@@ -12,19 +14,55 @@ function SoundCues.PlaySound(sound, volume)
 	end
 end
 
+function SoundCues.RepeatSound()
+    if not next(SoundCues.repeatEffects) then
+        EVENT_MANAGER:UnregisterForUpdate("SoundCuesRepeatSound")
+        return
+    end
+    local effectIdsToUnregister = {}
+    for effectId, repeatEffectData in pairs(SoundCues.repeatEffects) do
+        local effectData = SoundCues.Settings.trackedEffects[effectId]
+        repeatEffectData.timer = repeatEffectData.timer + 1
+        if repeatEffectData.timer == effectData.soundInterval then
+            SoundCues.PlaySound(effectData.sound, effectData.volume)
+            repeatEffectData.timer = 0
+            repeatEffectData.repeatCount = repeatEffectData.repeatCount + 1
+            if repeatEffectData.repeatCount > (effectData.soundRepeatAmount or 20) then
+                table.insert(effectIdsToUnregister, effectId)
+            end
+        end
+    end
+    for _, effectId in ipairs(effectIdsToUnregister) do
+        SoundCues.repeatEffects[effectId] = nil
+    end
+end
+
+
+function SoundCues.RunPlaySound(effectId, effectData)
+    SoundCues.PlaySound(effectData.sound, effectData.volume)
+    if effectData.soundRepeatType ~= "noRepeat" then
+        SoundCues.repeatEffects[effectId] = {
+            repeatCount = 0,
+            timer = 0,
+        }
+        EVENT_MANAGER:RegisterForUpdate("SoundCuesRepeatSound", 1000, SoundCues.RepeatSound)
+    end
+end
+
 function SoundCues.onEffectChanged(eventCode, changeType, effectSlot, effectName, unitTag, beginTime, endTime, stackCount, iconName, buffType, effectType, abilityType, statusEffectType, unitName, unitId, abilityId, sourceUnitType)
     for effectId, effectData in pairs(SoundCues.Settings.trackedEffects) do
         if effectId == abilityId and SoundCues.Settings.trackedEffects[effectId].active then
             if (changeType == EFFECT_RESULT_FADED) then
                 SoundCues.activeEffects[effectId] = nil
                 if effectData.timeBeforeEffectEnd == 0.0 then
-                    SoundCues.PlaySound(effectData.sound, effectData.volume)
+                    SoundCues.RunPlaySound(effectId, effectData)
                 end
             elseif (changeType == EFFECT_RESULT_GAINED) then
+                SoundCues.repeatEffects[effectId] = nil -- Stop sound repeat if effect is active again
                 if effectData.timeBeforeEffectEnd ~= 0.0 then
                     SoundCues.activeEffects[effectId] = {
                         endTime = endTime,
-                        count = 0,
+                        alerted = 0,
                     }
                     EVENT_MANAGER:RegisterForUpdate("SoundCuesRun", 100, SoundCues.run)
                 end
@@ -34,18 +72,17 @@ function SoundCues.onEffectChanged(eventCode, changeType, effectSlot, effectName
 end
 
 function SoundCues.run()
-    local now = GetGameTimeSeconds()
-    local noActiveEffects = true
-    for effectId, activeEffectData in pairs(SoundCues.activeEffects) do
-        noActiveEffects = false
-        local effectData = SoundCues.Settings.trackedEffects[effectId]
-        if activeEffectData.endTime - effectData.timeBeforeEffectEnd <= now and activeEffectData.count < (effectData.soundRepeatAmount or 1) then
-            SoundCues.PlaySound(effectData.sound, effectData.volume)
-            activeEffectData.count = activeEffectData.count + 1
-        end
-    end
-    if noActiveEffects then
+    if not next(SoundCues.activeEffects) then
         EVENT_MANAGER:UnregisterForUpdate("SoundCuesRun")
+        return
+    end
+    local now = GetGameTimeSeconds()
+    for effectId, activeEffectData in pairs(SoundCues.activeEffects) do
+        local effectData = SoundCues.Settings.trackedEffects[effectId]
+        if activeEffectData.endTime - effectData.timeBeforeEffectEnd <= now and not activeEffectData.alerted then
+            SoundCues.RunPlaySound(effectId, effectData)
+            activeEffectData.alerted = true
+        end
     end
 end
 

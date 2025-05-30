@@ -47,9 +47,6 @@ local function createNewEffectTracker()
             sound = "ABILITY_COMPANION_ULTIMATE_READY",
             volume = 1,
             timeBeforeEffectEnd = 0,
-            soundRepeatType = nil,
-            soundRepeatAmount = nil,
-            soundInterval = nil,
             active = true,
         }
         menuCurrentEffectId = newEffectId
@@ -74,17 +71,16 @@ end
 
 local function effectSettings()
     local EffectIdList, EffectNameList = getTrackedEffectLists(SoundCues.Settings.trackedEffects)
-    -- df("EffectNameList: %s, %s, %s", unpack(EffectNameList))
 
     local repeatTypeValues = {
         "noRepeat",
-        "RepeatDown",
         "RepeatAmount",
+        "RepeatDown",
     }
     local repeatTypeLabels = {
         "No Repeat",
-        "Repeat While Effect Is Down",
         "Repeat X Amount Of Times",
+        "Repeat While Effect Is Down",
     }
 
     return {
@@ -228,7 +224,7 @@ local function effectSettings()
             type = "slider",
             name = "Repeat Amount",
             tooltip = "The amount of times you want the sound to be repeated, only applied when using Sound Repeat Type 'Repeat X Amount Of Times'",
-            min = 1,
+            min = 2,
             max = 20,
             getFunc = function() return getEffectValue("soundRepeatAmount") end,
             setFunc = function(value) setEffectValue("soundRepeatAmount", value) end,
@@ -239,10 +235,8 @@ local function effectSettings()
             type = "slider",
             name = "Repeat Interval",
             tooltip = "The time between the sound repitition to be played",
-            min = 0.0,
-            max = 10.0,
-            step = 0.1,
-            decimals = 1,
+            min = 1,
+            max = 10,
             getFunc = function() return getEffectValue("soundInterval") end,
             setFunc = function(value) setEffectValue("soundInterval", value) end,
             width = "half",
