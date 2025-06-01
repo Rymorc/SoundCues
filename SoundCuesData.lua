@@ -3,15 +3,21 @@ SoundCues = SoundCues or {}
 SoundCuesData = {
     defaults = {
         trackedEffects = {
+            [-1] = {
+                active = false,
+                sound = "ALCHEMY_CREATE_TOOLTIP_GLOW_SUCCESS",
+                volume = 1,
+                soundRepeatType = "noRepeat",
+
+
+            },
             [17874] = {
+                active = false,
                 name = "Magma Shell",
                 sound = "ARMORY_SAVE_SUCCESS",
                 volume = 2,
                 timeBeforeEffectEnd = 1.5,
                 soundRepeatType = "noRepeat",
-                soundRepeatAmount = nil,
-                soundInterval = nil,
-                active = true,
             },
         },
     },

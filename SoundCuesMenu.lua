@@ -4,13 +4,29 @@ local menuCurrentEffectId = nil
 local newEffectId = nil
 
 local function getTrackedEffectLists(tbl)
-    local EffectIdList = {}
-    local EffectNameList = {}
-    for EffectId, effectSettings in pairs(tbl) do
-        table.insert(EffectIdList, EffectId)
-        table.insert(EffectNameList, effectSettings.name)
+    local effectIdList = {}
+    local effectNameList = {}
+    for effectId, effectSettings in pairs(tbl) do
+        if effectId ~= -1 then -- -1 stores the potion settings
+            table.insert(effectIdList, effectId)
+            table.insert(effectNameList, effectSettings.name)
+        end
     end
-    return EffectIdList, EffectNameList
+    return effectIdList, effectNameList
+end
+
+local function getRepeatTypeOptions()
+    local repeatTypeValues = {
+        "noRepeat",
+        "RepeatAmount",
+        "RepeatDown",
+    }
+    local repeatTypeLabels = {
+        "No Repeat",
+        "Repeat Amount",
+        "Repeat While Effect Is Down",
+    }
+    return repeatTypeValues, repeatTypeLabels
 end
 
 local function noMenuCurrentEffectId()
@@ -44,10 +60,11 @@ local function createNewEffectTracker()
         CREATE_DESCRIPTION.data.text = ""
         SoundCues.Settings.trackedEffects[newEffectId] = {
             name = abilityName,
+            active = true,
+            timeBeforeEffectEnd = 0,
             sound = "ABILITY_COMPANION_ULTIMATE_READY",
             volume = 1,
-            timeBeforeEffectEnd = 0,
-            active = true,
+            soundRepeatType = "noRepeat",
         }
         menuCurrentEffectId = newEffectId
         reloadEffectDropdown()
@@ -55,47 +72,46 @@ local function createNewEffectTracker()
     newEffectId = nil
 end
 
-local function getEffectValue(attribute)
-    if noMenuCurrentEffectId() then return nil end
-    return SoundCues.Settings.trackedEffects[menuCurrentEffectId][attribute]
+local function getEffectValue(effectId, attribute)
+    if effectId == nil then return nil end
+    return SoundCues.Settings.trackedEffects[effectId][attribute]
 end
 
-local function setEffectValue(attribute, value)
-    if noMenuCurrentEffectId() then return end
-    SoundCues.Settings.trackedEffects[menuCurrentEffectId][attribute] = value
+local function setEffectValue(effectId, attribute, value)
+    if effectId == nil then return nil end
+    SoundCues.Settings.trackedEffects[effectId][attribute] = value
 end
 
-local function setRepeatType(value)
-    if noMenuCurrentEffectId() then return end
-    local currentEffect = SoundCues.Settings.trackedEffects[menuCurrentEffectId]
+local function setInDungeonOnly(effectId, value)
+    if effectId == nil then return nil end
+    if not value then
+        setEffectValue(effectId, "vetOnly", false)
+    end
+    setEffectValue(effectId, "inDungeonOnly", value)
+end
+
+local function setRepeatType(effectId, value)
+    if effectId == nil then return nil end
+    local currentEffect = SoundCues.Settings.trackedEffects[effectId]
     if value ~= "RepeatAmount" then
-        setEffectValue("soundRepeatAmount", nil)
+        setEffectValue(effectId, "soundRepeatAmount", nil)
     elseif not currentEffect.soundRepeatAmount or currentEffect.soundRepeatAmount < 2 then
-        setEffectValue("soundRepeatAmount", 2)
+        setEffectValue(effectId, "soundRepeatAmount", 2)
     end
     if value ~= "noRepeat" and (not currentEffect.soundInterval or currentEffect.soundInterval == 0) then
-        setEffectValue("soundInterval", 1)
+        setEffectValue(effectId, "soundInterval", 1)
     end
-    setEffectValue("soundRepeatType", value)
+    setEffectValue(effectId, "soundRepeatType", value)
 end
 
-local function testSound(value)
-    SoundCues.PlaySound(getEffectValue("sound"), getEffectValue("volume"))
+local function testSound(effectId)
+    SoundCues.PlaySound(getEffectValue(effectId, "sound"), getEffectValue(effectId, "volume"))
 end
 
 local function effectSettings()
     local EffectIdList, EffectNameList = getTrackedEffectLists(SoundCues.Settings.trackedEffects)
 
-    local repeatTypeValues = {
-        "noRepeat",
-        "RepeatAmount",
-        "RepeatDown",
-    }
-    local repeatTypeLabels = {
-        "No Repeat",
-        "Repeat Amount",
-        "Repeat While Effect Is Down",
-    }
+    local repeatTypeValues, repeatTypeLabels = getRepeatTypeOptions()
 
     return {
         {
@@ -164,9 +180,36 @@ local function effectSettings()
         {
             type = "checkbox",
             name = "Active",
-            getFunc = function() return getEffectValue("active") end,
-            setFunc = function(value) setEffectValue("active", value) end,
+            getFunc = function() return getEffectValue(menuCurrentEffectId, "active") end,
+            setFunc = function(value) setEffectValue(menuCurrentEffectId, "active", value) end,
             tooltip = "Effect Tracking can be disabled without having to delete it.",
+            width = "half",
+            disabled = noMenuCurrentEffectId,
+        },
+        {
+            type = "checkbox",
+            name = "In Combat",
+            getFunc = function() return getEffectValue(menuCurrentEffectId, "inCombatOnly") end,
+            setFunc = function(value) setEffectValue(menuCurrentEffectId, "inCombatOnly", value) end,
+            tooltip = "Only play the sounds while in combat.",
+            width = "half",
+            disabled = noMenuCurrentEffectId,
+        },
+        {
+            type = "checkbox",
+            name = "In Instance",
+            getFunc = function() return getEffectValue(menuCurrentEffectId, "inDungeonOnly") end,
+            setFunc = function(value) setInDungeonOnly(menuCurrentEffectId, value) end,
+            tooltip = "Only play the sounds in instanced zones: dungeons, arenas or trials.",
+            width = "half",
+            disabled = noMenuCurrentEffectId,
+        },
+        {
+            type = "checkbox",
+            name = "Veteran Only",
+            getFunc = function() return getEffectValue(menuCurrentEffectId, "vetOnly") end,
+            setFunc = function(value) setEffectValue(menuCurrentEffectId, "vetOnly", value) end,
+            tooltip = "Only play the sounds in veteran instances",
             width = "half",
             disabled = noMenuCurrentEffectId,
         },
@@ -178,9 +221,9 @@ local function effectSettings()
             max = 5.0,
             step = 0.1,
             decimals = 1,
-            getFunc = function() return getEffectValue("timeBeforeEffectEnd") end,
-            setFunc = function(value) setEffectValue("timeBeforeEffectEnd", value) end,
-            width = "half",
+            getFunc = function() return getEffectValue(menuCurrentEffectId, "timeBeforeEffectEnd") end,
+            setFunc = function(value) setEffectValue(menuCurrentEffectId, "timeBeforeEffectEnd", value) end,
+            width = "full",
             disabled = noMenuCurrentEffectId,
         },
         {
@@ -194,8 +237,8 @@ local function effectSettings()
             tooltip = "Sound Effect to play",
             choices = SoundCuesData.soundList,
             scrollable = true,
-            getFunc = function() return getEffectValue("sound") end,
-            setFunc = function(value) setEffectValue("sound", value) end,
+            getFunc = function() return getEffectValue(menuCurrentEffectId, "sound") end,
+            setFunc = function(value) setEffectValue(menuCurrentEffectId, "sound", value) end,
             width = "half",
             disabled = noMenuCurrentEffectId,
         },
@@ -205,8 +248,8 @@ local function effectSettings()
             tooltip = "Volume of the Sound Effect",
             min = 1,
             max = 20,
-            getFunc = function() return getEffectValue("volume") end,
-            setFunc = function(value) setEffectValue("volume", value) end,
+            getFunc = function() return getEffectValue(menuCurrentEffectId, "volume") end,
+            setFunc = function(value) setEffectValue(menuCurrentEffectId, "volume", value) end,
             width = "half",
             disabled = noMenuCurrentEffectId,
         },
@@ -214,7 +257,7 @@ local function effectSettings()
             type = "button",
             name = "Test",
             tooltip = "Test Sound Effect",
-            func = testSound,
+            func = function(value) testSound(menuCurrentEffectId) end,
             width = "full",
             disabled = noMenuCurrentEffectId
         },
@@ -229,8 +272,8 @@ local function effectSettings()
             tooltip = "Sound Repeat Type",
             choices = repeatTypeLabels,
             choicesValues = repeatTypeValues,
-            getFunc = function() return getEffectValue("soundRepeatType") end,
-            setFunc = setRepeatType,
+            getFunc = function() return getEffectValue(menuCurrentEffectId, "soundRepeatType") end,
+            setFunc = function(value) setRepeatType(menuCurrentEffectId, value) end,
             width = "half",
             disabled = noMenuCurrentEffectId,
         },
@@ -240,10 +283,10 @@ local function effectSettings()
             tooltip = "The amount of times the sound will be played",
             min = 2,
             max = 20,
-            getFunc = function() return getEffectValue("soundRepeatAmount") end,
-            setFunc = function(value) setEffectValue("soundRepeatAmount", value) end,
+            getFunc = function() return getEffectValue(menuCurrentEffectId, "soundRepeatAmount") end,
+            setFunc = function(value) setEffectValue(menuCurrentEffectId, "soundRepeatAmount", value) end,
             width = "half",
-            disabled = function() return getEffectValue("soundRepeatType") ~= "RepeatAmount" end,
+            disabled = function() return getEffectValue(menuCurrentEffectId, "soundRepeatType") ~= "RepeatAmount" end,
         },
         {
             type = "slider",
@@ -251,16 +294,140 @@ local function effectSettings()
             tooltip = "The time between the sound repitition to be played",
             min = 1,
             max = 10,
-            getFunc = function() return getEffectValue("soundInterval") end,
-            setFunc = function(value) setEffectValue("soundInterval", value) end,
+            getFunc = function() return getEffectValue(menuCurrentEffectId, "soundInterval") end,
+            setFunc = function(value) setEffectValue(menuCurrentEffectId, "soundInterval", value) end,
             width = "half",
-            disabled = function() return noMenuCurrentEffectId() or getEffectValue("soundRepeatType") == "noRepeat" end,
+            disabled = function() return noMenuCurrentEffectId() or getEffectValue(menuCurrentEffectId, "soundRepeatType") == "noRepeat" end,
         },
     }
 end
 
 local function potionSettings()
-    return {}
+    local repeatTypeValues, repeatTypeLabels = getRepeatTypeOptions()
+
+    return {
+        {
+            type = "header",
+            name = "Activiation",
+            width = "full",
+        },
+        {
+            type = "checkbox",
+            name = "Active",
+            getFunc = function() return getEffectValue(-1, "active") end,
+            setFunc = function(value)
+                setEffectValue(-1, "active", value)
+                SoundCues.setUpPotionTracker()
+            end,
+            tooltip = "Disable Potion Tracking",
+            width = "half",
+        },
+        {
+            type = "checkbox",
+            name = "In Combat",
+            getFunc = function() return getEffectValue(-1, "inCombatOnly") end,
+            setFunc = function(value)
+                setEffectValue(-1, "inCombatOnly", value)
+                SoundCues.setUpPotionTracker()
+                SoundCues.trackOnCombatStateChange()
+            end,
+            tooltip = "Only play the sounds while in combat.",
+            width = "half",
+        },
+        {
+            type = "checkbox",
+            name = "In Group Instance",
+            getFunc = function() return getEffectValue(-1, "inDungeonOnly") end,
+            setFunc = function(value)
+                setInDungeonOnly(-1, value)
+                SoundCues.setUpPotionTracker()
+                SoundCues.trackOnZoneChange()
+            end,
+            tooltip = "Only play the sounds in group instance zones: dungeons, arenas or trials.",
+            width = "half",
+        },
+        {
+            type = "checkbox",
+            name = "Veteran Only",
+            getFunc = function() return getEffectValue(-1, "vetOnly") end,
+            setFunc = function(value)
+                setEffectValue(-1, "vetOnly", value)
+                SoundCues.setUpPotionTracker()
+            end,
+            tooltip = "Only play the sounds in veteran instances",
+            width = "half",
+            disabled = function() return not getEffectValue(-1, "inDungeonOnly") end ,
+        },
+        {
+            type = "header",
+            name = "Sound Effect",
+            width = "full",
+        },
+        {
+            type = "dropdown",
+            name = "Sound Effect",
+            tooltip = "Sound Effect to play",
+            choices = SoundCuesData.soundList,
+            scrollable = true,
+            getFunc = function() return getEffectValue(-1, "sound") end,
+            setFunc = function(value) setEffectValue(-1, "sound", value) end,
+            width = "half",
+        },
+        {
+            type = "slider",
+            name = "Volume",
+            tooltip = "Volume of the Sound Effect",
+            min = 1,
+            max = 20,
+            getFunc = function() return getEffectValue(-1, "volume") end,
+            setFunc = function(value) setEffectValue(-1, "volume", value) end,
+            width = "half",
+        },
+        {
+            type = "button",
+            name = "Test",
+            tooltip = "Test Sound Effect",
+            func = function(value) testSound(-1) end,
+            width = "full",
+        },
+        {
+            type = "header",
+            name = "Repetition",
+            width = "full",
+        },
+        {
+            type = "dropdown",
+            name = "Sound Repeat Type",
+            tooltip = "Sound Repeat Type",
+            choices = repeatTypeLabels,
+            choicesValues = repeatTypeValues,
+            getFunc = function() return getEffectValue(-1, "soundRepeatType") end,
+            setFunc = function(value) setRepeatType(-1, value) end,
+            width = "half",
+        },
+        {
+            type = "slider",
+            name = "Repeat Amount",
+            tooltip = "The amount of times the sound will be played",
+            min = 2,
+            max = 20,
+            getFunc = function() return getEffectValue(-1, "soundRepeatAmount") end,
+            setFunc = function(value) setEffectValue(-1, "soundRepeatAmount", value) end,
+            width = "half",
+            disabled = function() return getEffectValue(-1, "soundRepeatType") ~= "RepeatAmount" end,
+        },
+        {
+            type = "slider",
+            name = "Repeat Interval",
+            tooltip = "The time between the sound repitition to be played",
+            min = 1,
+            max = 10,
+            getFunc = function() return getEffectValue(-1, "soundInterval") end,
+            setFunc = function(value) setEffectValue(-1, "soundInterval", value) end,
+            width = "half",
+            disabled = function() return getEffectValue(-1, "soundRepeatType") == "noRepeat" end,
+        },
+    }
 end
 
 function SoundCues.setUpMenu()
