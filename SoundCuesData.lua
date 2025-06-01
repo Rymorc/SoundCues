@@ -257,20 +257,4 @@ SoundCuesData = {
         "UNIVERSAL_DECONSTRUCTION_SUCCESS",
         "VOICE_CHAT_ALERT_CHANNEL_MADE_ACTIVE",
     },
--- potential improvements
---     ultimateEffects = {
---         [17874] = {17874}, -- Magma Shell
---         [] = {40223}, --Agressive Horn
---         [193799] = {193794}, -- Glyphic of the Tides
---         [] = {23495}, -- Major Berserk
---         [194207] = {193558}, -- Resonating Glyphic
---     }
---     -- Slayer
---     -- Saxhleel
---     -- Pillager
---     -- Crypt
---     -- slider 1 - 500 for desired ultimate amount
---     -- or take highest costing slotted ultimate?
-
---     -- Add colo later when adding effect tracker for target
 }
