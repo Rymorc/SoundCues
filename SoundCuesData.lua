@@ -8,8 +8,6 @@ SoundCuesData = {
                 sound = "ALCHEMY_CREATE_TOOLTIP_GLOW_SUCCESS",
                 volume = 1,
                 soundRepeatType = "noRepeat",
-
-
             },
             [17874] = {
                 active = false,
