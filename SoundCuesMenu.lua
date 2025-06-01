@@ -65,6 +65,20 @@ local function setEffectValue(attribute, value)
     SoundCues.Settings.trackedEffects[menuCurrentEffectId][attribute] = value
 end
 
+local function setRepeatType(value)
+    if noMenuCurrentEffectId() then return end
+    local currentEffect = SoundCues.Settings.trackedEffects[menuCurrentEffectId]
+    if value ~= "RepeatAmount" then
+        setEffectValue("soundRepeatAmount", nil)
+    elseif not currentEffect.soundRepeatAmount or currentEffect.soundRepeatAmount < 2 then
+        setEffectValue("soundRepeatAmount", 2)
+    end
+    if value ~= "noRepeat" and (not currentEffect.soundInterval or currentEffect.soundInterval == 0) then
+        setEffectValue("soundInterval", 1)
+    end
+    setEffectValue("soundRepeatType", value)
+end
+
 local function testSound(value)
     SoundCues.PlaySound(getEffectValue("sound"), getEffectValue("volume"))
 end
@@ -79,7 +93,7 @@ local function effectSettings()
     }
     local repeatTypeLabels = {
         "No Repeat",
-        "Repeat X Amount Of Times",
+        "Repeat Amount",
         "Repeat While Effect Is Down",
     }
 
@@ -216,14 +230,14 @@ local function effectSettings()
             choices = repeatTypeLabels,
             choicesValues = repeatTypeValues,
             getFunc = function() return getEffectValue("soundRepeatType") end,
-            setFunc = function(value) setEffectValue("soundRepeatType", value) end,
+            setFunc = setRepeatType,
             width = "half",
             disabled = noMenuCurrentEffectId,
         },
         {
             type = "slider",
             name = "Repeat Amount",
-            tooltip = "The amount of times you want the sound to be repeated, only applied when using Sound Repeat Type 'Repeat X Amount Of Times'",
+            tooltip = "The amount of times the sound will be played",
             min = 2,
             max = 20,
             getFunc = function() return getEffectValue("soundRepeatAmount") end,
